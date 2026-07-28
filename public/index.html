@@ -1,0 +1,398 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>별자리 로또 챗봇</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #07111f;
+        --bg-2: #0f1d34;
+        --panel: rgba(12, 20, 35, 0.82);
+        --panel-strong: rgba(18, 29, 49, 0.96);
+        --border: rgba(255, 255, 255, 0.11);
+        --text: #f8fbff;
+        --muted: #9fb0ce;
+        --accent: #7ce0ff;
+        --accent-2: #ff9ad5;
+        --good: #9ef0b0;
+        --shadow: 0 28px 90px rgba(0, 0, 0, 0.42);
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        color: var(--text);
+        background:
+          radial-gradient(circle at 20% 20%, rgba(124, 224, 255, 0.2), transparent 30%),
+          radial-gradient(circle at 80% 10%, rgba(255, 154, 213, 0.16), transparent 26%),
+          radial-gradient(circle at 70% 85%, rgba(158, 240, 176, 0.09), transparent 28%),
+          linear-gradient(180deg, var(--bg), var(--bg-2));
+        font-family: "Avenir Next", "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
+        padding: 24px;
+      }
+      .shell { width: min(1120px, 100%); margin: 0 auto; display: grid; gap: 20px; }
+      .hero, .chat, .sidebar {
+        border: 1px solid var(--border);
+        background: var(--panel);
+        backdrop-filter: blur(20px);
+        border-radius: 28px;
+        box-shadow: var(--shadow);
+      }
+      .hero { padding: 26px; position: relative; overflow: hidden; }
+      .hero::after {
+        content: ""; position: absolute; inset: auto -80px -120px auto; width: 260px; height: 260px;
+        border-radius: 50%; background: radial-gradient(circle, rgba(124, 224, 255, 0.2), transparent 68%);
+      }
+      h1 { margin: 0; font-size: clamp(2rem, 4.8vw, 4.4rem); letter-spacing: -0.04em; }
+      .lead { max-width: 64ch; color: var(--muted); line-height: 1.7; margin: 12px 0 0; }
+      .layout { display: grid; gap: 20px; grid-template-columns: 1fr; }
+      .chat { min-height: 620px; display: grid; grid-template-rows: auto 1fr auto; overflow: hidden; }
+      .chat-top, .composer { padding: 18px 22px; }
+      .chat-top { background: rgba(255,255,255,0.03); border-bottom: 1px solid var(--border); }
+      .composer { border-top: 1px solid var(--border); background: rgba(255,255,255,0.03); }
+      .messages { padding: 22px; display: grid; gap: 14px; align-content: start; overflow: auto; }
+      .msg { display: flex; }
+      .msg.bot { justify-content: flex-start; }
+      .msg.user { justify-content: flex-end; }
+      .bubble {
+        max-width: min(680px, 88%); padding: 16px 18px; border-radius: 20px; line-height: 1.7;
+        white-space: pre-wrap; word-break: keep-all;
+      }
+      .bot .bubble { background: var(--panel-strong); border: 1px solid rgba(255,255,255,0.08); }
+      .user .bubble { background: linear-gradient(135deg, rgba(124,224,255,0.98), rgba(255,154,213,0.92)); color: #08111f; font-weight: 700; }
+      .chips { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+      .chip { display: inline-flex; align-items: center; gap: 8px; border-radius: 999px; padding: 9px 14px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); }
+      .balls { display: flex; gap: 10px; flex-wrap: wrap; margin: 14px 0 10px; }
+      .ball { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; background: linear-gradient(135deg, rgba(124,224,255,0.96), rgba(255,154,213,0.96)); color: #08111f; font-weight: 900; }
+      form { display: grid; gap: 12px; }
+      .field-grid { display: grid; gap: 12px; grid-template-columns: 1fr; }
+      label { font-weight: 700; color: var(--text); }
+      input, button { font: inherit; }
+      input {
+        width: 100%; border-radius: 16px; border: 1px solid rgba(255,255,255,0.12);
+        background: rgba(4, 8, 16, 0.35); color: var(--text); padding: 15px 16px; outline: none;
+      }
+      input:focus { border-color: rgba(124,224,255,0.7); box-shadow: 0 0 0 4px rgba(124,224,255,0.14); }
+      .actions { display: flex; flex-wrap: wrap; gap: 10px; }
+      button { border: 0; border-radius: 14px; padding: 14px 18px; cursor: pointer; font-weight: 800; }
+      .primary { color: #06101c; background: linear-gradient(135deg, var(--accent), var(--accent-2)); }
+      .ghost { background: rgba(255,255,255,0.06); color: var(--text); border: 1px solid rgba(255,255,255,0.09); }
+      .sidebar { padding: 22px; display: grid; gap: 16px; align-content: start; }
+      .panel { padding: 16px; border-radius: 20px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); }
+      .panel h2 { margin: 0 0 10px; font-size: 1rem; }
+      .kv { display: grid; gap: 10px; color: var(--muted); }
+      .kv strong { color: var(--text); }
+      .status { color: var(--good); min-height: 1.5em; }
+      .error { color: #fda4af; }
+      @media (min-width: 960px) { .layout { grid-template-columns: minmax(0, 1.75fr) minmax(280px, 0.85fr); } }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <h1>별자리 로또 챗봇</h1>
+        <p class="lead">생년월일을 입력하면 별자리를 계산해 6개의 로또 번호와 보너스 번호를 뽑아주고, 왜 그런 조합을 골랐는지 설명해줍니다.</p>
+      </section>
+
+      <section class="layout">
+        <section class="chat" aria-label="로또 챗봇 대화창">
+          <div class="chat-top">
+            <h2 class="chat-title">챗봇 대화</h2>
+            <p class="chat-subtitle">이 화면 하나만 열어도 동작할 수 있게 만들었어요.</p>
+          </div>
+          <div class="messages" id="messages">
+            <div class="msg bot">
+              <div class="bubble">
+                안녕하세요. 생년월일을 알려주시면 별자리를 바탕으로 로또 번호를 추천하고, 왜 그런 조합을 골랐는지 설명해드릴게요.
+              </div>
+            </div>
+          </div>
+          <div class="composer">
+            <form id="lotto-form">
+              <div class="field-grid">
+                <div>
+                  <label for="birthdate">생년월일</label>
+                  <input id="birthdate" name="birthdate" type="date" required />
+                </div>
+                <div>
+                  <label for="api-key">OpenAI API Key</label>
+                  <input id="api-key" name="api-key" type="password" placeholder="sk-..." />
+                </div>
+                <div>
+                  <label for="model">모델</label>
+                  <input id="model" name="model" type="text" value="gpt-5.4-mini" />
+                </div>
+              </div>
+              <div class="actions">
+                <button class="primary" type="submit">번호 뽑기</button>
+                <button class="ghost" type="button" id="reset-btn">대화 초기화</button>
+              </div>
+              <div id="status" class="status"></div>
+            </form>
+          </div>
+        </section>
+
+        <aside class="sidebar">
+          <div class="panel">
+            <h2>결과 요약</h2>
+            <div class="kv">
+              <div><strong>별자리:</strong> <span id="zodiac">-</span></div>
+              <div><strong>성향 키워드:</strong> <span id="traits">-</span></div>
+              <div><strong>보너스 번호:</strong> <span id="bonus">-</span></div>
+            </div>
+          </div>
+          <div class="panel">
+            <h2>추첨 번호</h2>
+            <div class="balls" id="numbers"></div>
+          </div>
+          <div class="panel">
+            <h2>설명 포인트</h2>
+            <div id="explanation" class="kv">결과를 뽑으면 번호 선택 이유가 여기에 표시됩니다.</div>
+          </div>
+        </aside>
+      </section>
+    </main>
+
+    <script>
+      const form = document.getElementById("lotto-form");
+      const resetBtn = document.getElementById("reset-btn");
+      const statusEl = document.getElementById("status");
+      const messagesEl = document.getElementById("messages");
+      const zodiacEl = document.getElementById("zodiac");
+      const traitsEl = document.getElementById("traits");
+      const bonusEl = document.getElementById("bonus");
+      const numbersEl = document.getElementById("numbers");
+      const explanationEl = document.getElementById("explanation");
+      const birthdateInput = document.getElementById("birthdate");
+      const apiKeyInput = document.getElementById("api-key");
+      const modelInput = document.getElementById("model");
+
+      const getZodiac = (month, day) => {
+        const signs = [
+          ["capricorn", "염소자리", [1, 19]],
+          ["aquarius", "물병자리", [2, 18]],
+          ["pisces", "물고기자리", [3, 20]],
+          ["aries", "양자리", [4, 19]],
+          ["taurus", "황소자리", [5, 20]],
+          ["gemini", "쌍둥이자리", [6, 20]],
+          ["cancer", "게자리", [7, 22]],
+          ["leo", "사자자리", [8, 22]],
+          ["virgo", "처녀자리", [9, 22]],
+          ["libra", "천칭자리", [10, 22]],
+          ["scorpio", "전갈자리", [11, 21]],
+          ["sagittarius", "사수자리", [12, 21]],
+          ["capricorn", "염소자리", [12, 31]],
+        ];
+        for (const [key, label, [endMonth, endDay]] of signs) {
+          if (month < endMonth || (month === endMonth && day <= endDay)) return { key, label };
+        }
+        return { key: "capricorn", label: "염소자리" };
+      };
+
+      const traitsMap = {
+        aries: "시작, 추진력, 빠른 결단",
+        taurus: "안정, 감각, 꾸준함",
+        gemini: "호기심, 변화, 조합",
+        cancer: "보호, 직관, 정서",
+        leo: "자신감, 중심성, 강한 존재감",
+        virgo: "정리, 균형, 세밀함",
+        libra: "조화, 균형감, 미적 감각",
+        scorpio: "집중, 깊이, 강한 직감",
+        sagittarius: "확장, 자유, 낙관",
+        capricorn: "책임, 구조, 목표지향",
+        aquarius: "독창성, 미래감, 실험정신",
+        pisces: "상상력, 공감, 유연함",
+      };
+
+      const hashString = (input) => {
+        let hash = 2166136261;
+        for (let i = 0; i < input.length; i += 1) {
+          hash ^= input.charCodeAt(i);
+          hash = Math.imul(hash, 16777619);
+        }
+        return hash >>> 0;
+      };
+
+      const createRandom = (seed) => {
+        let state = seed >>> 0;
+        return () => {
+          state += 0x6d2b79f5;
+          let t = state;
+          t = Math.imul(t ^ (t >>> 15), t | 1);
+          t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+          return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+      };
+
+      const drawLottoNumbers = (seedText) => {
+        const rand = createRandom(hashString(seedText));
+        const pool = Array.from({ length: 45 }, (_, i) => i + 1);
+        const picks = [];
+        while (picks.length < 6) {
+          const index = Math.floor(rand() * pool.length);
+          picks.push(pool.splice(index, 1)[0]);
+        }
+        picks.sort((a, b) => a - b);
+        const bonus = pool[Math.floor(rand() * pool.length)];
+        return { picks, bonus };
+      };
+
+      const localExplanation = ({ birthdate, zodiacLabel, zodiacKey, numbers, bonus }) => {
+        const traits = traitsMap[zodiacKey] || "균형";
+        const first = numbers[0];
+        const middle = numbers[2];
+        const last = numbers[numbers.length - 1];
+        return [
+          `생년월일 ${birthdate}은 ${zodiacLabel}의 흐름으로 읽었어요.`,
+          `이 별자리는 ${traits} 같은 키워드가 강해서, 번호도 치우치지 않게 앞/가운데/뒤 구간을 섞어 골랐어요.`,
+          `${first}은 초반 구간의 시작 에너지를, ${middle}은 중심을 잡는 안정감을, ${last}는 마무리 운을 상징하는 번호로 배치했어요.`,
+          `보너스 ${bonus}는 본 번호와 겹치지 않는 또 다른 흐름을 더해주기 위해 선택했어요.`,
+          `즉, 이 조합은 "${zodiacLabel}의 성향 + 날짜 시드 + 구간 균형"을 함께 반영한 결과예요.`,
+        ].join(" ");
+      };
+
+      const appendMessage = (role, content, extra = "") => {
+        const wrapper = document.createElement("div");
+        wrapper.className = `msg ${role}`;
+        const bubble = document.createElement("div");
+        bubble.className = "bubble";
+        bubble.textContent = content;
+        if (extra) {
+          const chips = document.createElement("div");
+          chips.className = "chips";
+          chips.innerHTML = extra;
+          bubble.appendChild(chips);
+        }
+        wrapper.appendChild(bubble);
+        messagesEl.appendChild(wrapper);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      };
+
+      const renderNumbers = (numbers) => {
+        numbersEl.innerHTML = "";
+        numbers.forEach((number) => {
+          const ball = document.createElement("span");
+          ball.className = "ball";
+          ball.textContent = number;
+          numbersEl.appendChild(ball);
+        });
+      };
+
+      const resetChat = () => {
+        messagesEl.innerHTML = `
+          <div class="msg bot">
+            <div class="bubble">
+              안녕하세요. 생년월일을 알려주시면 별자리를 바탕으로 로또 번호를 추천하고, 왜 그런 조합을 골랐는지 설명해드릴게요.
+            </div>
+          </div>
+        `;
+        zodiacEl.textContent = "-";
+        traitsEl.textContent = "-";
+        bonusEl.textContent = "-";
+        numbersEl.innerHTML = "";
+        explanationEl.textContent = "결과를 뽑으면 번호 선택 이유가 여기에 표시됩니다.";
+        statusEl.textContent = "";
+        birthdateInput.value = "";
+      };
+
+      const fetchOpenAIExplanation = async ({ apiKey, model, birthdate, zodiacLabel, zodiacKey, numbers, bonus }) => {
+        const prompt = [
+          "당신은 한국어 로또 추첨 설명 챗봇입니다.",
+          "사용자가 입력한 생년월일과 별자리를 바탕으로 추첨된 번호의 의미를 짧고 친절하게 설명하세요.",
+          "규칙:",
+          "1. 실제 점술처럼 단정하지 말고 재미 요소로 표현하세요.",
+          "2. 번호마다 이유를 1문장씩 설명하세요.",
+          "3. 전체 설명은 5~8문장으로 간결하게 쓰세요.",
+          "4. 출력에는 제목, 번호 목록, 짧은 마무리만 포함하세요.",
+          "",
+          `생년월일: ${birthdate}`,
+          `별자리: ${zodiacLabel}`,
+          `별자리 키: ${zodiacKey}`,
+          `추첨 번호: ${numbers.join(", ")}`,
+          `보너스 번호: ${bonus}`,
+        ].join("\n");
+
+        const response = await fetch("https://api.openai.com/v1/responses", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            model,
+            input: prompt,
+            temperature: 0.7,
+          }),
+        });
+
+        const raw = await response.text();
+        if (!response.ok) {
+          throw new Error(raw || `OpenAI API error ${response.status}`);
+        }
+        const data = JSON.parse(raw);
+        return data.output_text?.trim() || localExplanation({ birthdate, zodiacLabel, zodiacKey, numbers, bonus });
+      };
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const birthdate = birthdateInput.value;
+        if (!birthdate) return;
+
+        const apiKey = apiKeyInput.value.trim();
+        const model = modelInput.value.trim() || "gpt-5.4-mini";
+        const parsed = new Date(`${birthdate}T00:00:00`);
+        const month = parsed.getMonth() + 1;
+        const day = parsed.getDate();
+        const zodiac = getZodiac(month, day);
+        const { picks, bonus } = drawLottoNumbers(`${birthdate}:${zodiac.key}`);
+        const fallback = localExplanation({
+          birthdate,
+          zodiacLabel: zodiac.label,
+          zodiacKey: zodiac.key,
+          numbers: picks,
+          bonus,
+        });
+
+        appendMessage("user", `생년월일은 ${birthdate}예요. 추천해줘.`);
+        statusEl.textContent = "추첨 중...";
+        explanationEl.textContent = "챗봇이 별자리 흐름을 해석하고 있어요.";
+
+        zodiacEl.textContent = zodiac.label;
+        traitsEl.textContent = traitsMap[zodiac.key] || "-";
+        bonusEl.textContent = bonus;
+        renderNumbers(picks);
+
+        try {
+          const explanation = apiKey
+            ? await fetchOpenAIExplanation({
+                apiKey,
+                model,
+                birthdate,
+                zodiacLabel: zodiac.label,
+                zodiacKey: zodiac.key,
+                numbers: picks,
+                bonus,
+              })
+            : fallback;
+
+          explanationEl.textContent = explanation;
+          statusEl.textContent = apiKey ? "OpenAI 설명 완료" : "로컬 설명 완료";
+          const chips = `
+            <span class="chip">별자리: ${zodiac.label}</span>
+            <span class="chip">키워드: ${traitsMap[zodiac.key] || "-"}</span>
+            <span class="chip">보너스: ${bonus}</span>
+          `;
+          appendMessage("bot", `좋아요. ${birthdate} 기준으로 ${zodiac.label}를 읽고, ${picks.join(", ")}와 보너스 ${bonus}를 추천했어요.\n\n${explanation}`, chips);
+        } catch (error) {
+          explanationEl.textContent = fallback;
+          statusEl.innerHTML = `<span class="error">${error.message}</span>`;
+          appendMessage("bot", `OpenAI 호출에 실패해서 로컬 설명으로 대신할게요.\n\n${fallback}`);
+        }
+      });
+
+      resetBtn.addEventListener("click", resetChat);
+    </script>
+  </body>
+</html>

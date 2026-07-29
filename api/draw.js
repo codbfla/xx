@@ -108,7 +108,9 @@ function localExplanation({ birthdate, zodiacLabel, zodiacKey, numbers, bonus })
 }
 
 async function saveDraw(draw) {
-  if (!supabase) return;
+  if (!supabase) {
+    return { saved: false, reason: "supabase client is not configured" };
+  }
 
   const { error } = await supabase.from("lotto_draws").insert({
     birthdate: draw.birthdate,
@@ -121,8 +123,10 @@ async function saveDraw(draw) {
   });
 
   if (error) {
-    throw error;
+    return { saved: false, reason: error.message };
   }
+
+  return { saved: true };
 }
 
 export default async function handler(req, res) {
@@ -182,7 +186,7 @@ export default async function handler(req, res) {
       }
     }
 
-    await saveDraw({
+    const saveResult = await saveDraw({
       birthdate,
       zodiac: zodiac.label,
       zodiacKey: zodiac.key,
@@ -200,6 +204,7 @@ export default async function handler(req, res) {
       numbers: picks,
       bonus,
       explanation,
+      saveResult,
     });
   } catch (error) {
     return sendJson(res, 500, { error: error.message || "unexpected error" });

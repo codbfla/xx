@@ -85,6 +85,7 @@
       .kv { display: grid; gap: 10px; color: var(--muted); }
       .kv strong { color: var(--text); }
       .status { color: var(--good); min-height: 1.5em; }
+      .status.fail { color: #fda4af; }
       .error { color: #fda4af; }
       @media (min-width: 960px) { .layout { grid-template-columns: minmax(0, 1.75fr) minmax(280px, 0.85fr); } }
     </style>
@@ -165,6 +166,10 @@
       const bonusEl = document.getElementById("bonus");
       const numbersEl = document.getElementById("numbers");
       const explanationEl = document.getElementById("explanation");
+      const statusDetailEl = document.createElement("div");
+      statusDetailEl.className = "status";
+      statusDetailEl.style.marginTop = "8px";
+      statusDetailEl.id = "status-detail";
       const birthdateInput = document.getElementById("birthdate");
       const apiKeyInput = document.getElementById("api-key");
       const modelInput = document.getElementById("model");
@@ -294,6 +299,7 @@
         numbersEl.innerHTML = "";
         explanationEl.textContent = "결과를 뽑으면 번호 선택 이유가 여기에 표시됩니다.";
         statusEl.textContent = "";
+        statusDetailEl.textContent = "";
         birthdateInput.value = "";
       };
 
@@ -379,6 +385,13 @@
 
           explanationEl.textContent = explanation;
           statusEl.textContent = apiKey ? "OpenAI 설명 완료" : "로컬 설명 완료";
+          if (data.saveResult?.saved) {
+            statusDetailEl.className = "status";
+            statusDetailEl.textContent = "Supabase 저장 완료";
+          } else {
+            statusDetailEl.className = "status fail";
+            statusDetailEl.textContent = `Supabase 저장 실패: ${data.saveResult?.reason || "알 수 없음"}`;
+          }
           const chips = `
             <span class="chip">별자리: ${zodiac.label}</span>
             <span class="chip">키워드: ${traitsMap[zodiac.key] || "-"}</span>
@@ -388,11 +401,14 @@
         } catch (error) {
           explanationEl.textContent = fallback;
           statusEl.innerHTML = `<span class="error">${error.message}</span>`;
+          statusDetailEl.className = "status fail";
+          statusDetailEl.textContent = "Supabase 저장 상태를 확인하지 못했어요.";
           appendMessage("bot", `OpenAI 호출에 실패해서 로컬 설명으로 대신할게요.\n\n${fallback}`);
         }
       });
 
       resetBtn.addEventListener("click", resetChat);
+      document.getElementById("status").insertAdjacentElement("afterend", statusDetailEl);
     </script>
   </body>
 </html>
